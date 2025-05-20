@@ -8,6 +8,9 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+ios/Pods/
+android/.gradle/
+android/app/build/
 
 # Native
 *.orig.*
@@ -36,3 +39,8 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+.DS_Store
+Thumbs.db
+
+
