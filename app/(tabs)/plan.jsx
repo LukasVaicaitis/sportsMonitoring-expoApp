@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, ActivityIndicator, Button, Alert, Modal, SafeAreaView,
-    TextInput, Pressable
+    TextInput, Pressable, Platform
 } from 'react-native';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -11,6 +11,7 @@ import Toast from 'react-native-toast-message';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { Picker } from '@react-native-picker/picker';
 import { MaterialIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -19,6 +20,8 @@ export default function PlanningScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
 
+    const [selectedPlanDate, setSelectedPlanDate] = useState(new Date());
+    const [showDatePicker, setShowDatePicker] = useState(false);
     const [currentView, setCurrentView] = useState('My Plans');
     const [plannedWorkout, setPlannedWorkout] = useState(null);
     const [coachWorkouts, setCoachWorkouts] = useState([]);
@@ -90,8 +93,13 @@ export default function PlanningScreen() {
         if (!token) return;
         const url = useAI ? `${API_BASE_URL}/api/workouts/generateAI` : `${API_BASE_URL}/api/workouts/generate`;
         setIsGenerating(true); setError('');
+        const planDateString = selectedPlanDate.toISOString().split('T')[0];
+
         try {
-            const response = await axios.post(url, {}, { headers: { Authorization: `Bearer ${token}` } });
+            const response = await axios.post(url,
+                { planDate: planDateString },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
             setPlannedWorkout(response.data);
             setCurrentView('My Plans');
             Toast.show({ type: 'success', text1: 'New Plan Generated!' });
@@ -188,6 +196,32 @@ export default function PlanningScreen() {
 
     const renderMyPlans = () => (
         <View style={styles.viewContainer}>
+            <Pressable
+                style={({ pressed }) => [styles.datePickerButton, (isGenerating || isLoading || pressed) && styles.buttonDisabled]}
+                onPress={() => setShowDatePicker(true)}
+                disabled={isGenerating || isLoading}
+            >
+                <MaterialIcons name="calendar-today" size={20} color="#333" />
+                <Text style={styles.datePickerButtonText}>
+                    Plan Date: {selectedPlanDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
+                </Text>
+            </Pressable>
+
+            {showDatePicker && (
+                <DateTimePicker
+                    value={selectedPlanDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(event, date) => {
+                        setShowDatePicker(Platform.OS === 'ios');
+                        if (date) {
+                            setSelectedPlanDate(date);
+                        }
+                    }}
+                    minimumDate={new Date()}
+                />
+            )}
+
             <View style={styles.actionButtons}>
                 <Pressable
                     style={({ pressed }) => [styles.button, styles.generateButton, (isGenerating || isLoading || pressed) && styles.buttonDisabled]}
@@ -245,7 +279,7 @@ export default function PlanningScreen() {
                     <View style={styles.myPlanActions}>
                         <Pressable
                             style={({ pressed }) => [styles.actionButton, styles.completeButton, (isMarkingComplete || pressed) && styles.buttonPressed]}
-                            onPress={() => handleMarkComplete(plannedWorkout._id, 'My Plans')} // Pass ID and source
+                            onPress={() => handleMarkComplete(plannedWorkout._id, 'My Plans')} 
                             disabled={isMarkingComplete}
                         >
                             {isMarkingComplete ? (
@@ -287,7 +321,7 @@ export default function PlanningScreen() {
                     <View style={styles.coachActionButtons}>
                         <Pressable
                             style={({ pressed }) => [styles.actionButton, styles.completeButton, pressed && styles.buttonPressed]}
-                            onPress={() => handleMarkComplete(workout._id, 'Coach Plans')} // Pass source
+                            onPress={() => handleMarkComplete(workout._id, 'Coach Plans')}
                         >
                             <MaterialIcons name="check-circle-outline" size={18} color="#fff" />
                             <Text style={styles.actionButtonText}>Mark Done</Text>
@@ -458,4 +492,6 @@ const styles = StyleSheet.create({
     input: { height: 45, borderColor: '#ccc', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, marginBottom: 15, backgroundColor: '#fff', fontSize: 16 },
     pickerContainerModal: { height: 50, justifyContent: 'center', borderColor: '#ccc', borderWidth: 1, borderRadius: 8, backgroundColor: '#fff', marginBottom: 15 },
     picker: { height: 50 },
+    datePickerButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 20, backgroundColor: '#e0e0e0', borderRadius: 8, marginVertical: 15, alignSelf: 'center' },
+    datePickerButtonText: { color: '#333', fontSize: 16, fontWeight: '500', marginLeft: 10 },
 });

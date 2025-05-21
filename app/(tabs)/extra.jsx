@@ -26,7 +26,6 @@ export default function ExtraScreen() {
         if (refreshUserProfile) {
             await refreshUserProfile();
         }
-        await checkFitConnection();
         setIsRefreshing(false);
     }, [refreshUserProfile]);
 

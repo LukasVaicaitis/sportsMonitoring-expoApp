@@ -106,7 +106,7 @@ export default function AssignWorkoutScreen() {
             setClientEmail(''); setPlanDate(new Date());
             setMachineListItems(currentItems => currentItems.map(item => ({ ...item, isSelected: false, targetReps: '' })));
         } catch (err) {
-            setError(err.response?.data?.msg || 'Failed assign plan.');
+            setError(err.response?.data?.msg || 'Failed to assign plan.');
             Alert.alert('Assignment Failed', error);
         } finally { setIsAssigning(false); }
     };
@@ -149,7 +149,7 @@ export default function AssignWorkoutScreen() {
 
                         <View style={styles.inputSection}>
                             <Text style={styles.label}>Client Email:</Text>
-                            <TextInput style={styles.input} value={clientEmail} onChangeText={setClientEmail} keyboardType="email-address" autoCapitalize="none" placeholder="client@example.com" />
+                            <TextInput style={styles.input} value={clientEmail} onChangeText={setClientEmail} keyboardType="email-address" autoCapitalize="none" placeholder="user@example.com" />
 
                             <Text style={styles.label}>Date:</Text>
                             <Pressable onPress={() => setShowDatePicker(true)} style={styles.dateButton}>

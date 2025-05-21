@@ -248,12 +248,9 @@ export default function GoogleFitStatsDisplay({ style }) {
 }
 
 const styles = StyleSheet.create({
-    container: { backgroundColor: '#f0f0f0', borderRadius: 15, padding: 10, margin: 5, shadowColor: "#000000",
-        shadowOffset: { height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
-        elevation: 4,
-        minHeight: 150,
+    container: {
+        backgroundColor: '#f0f0f0', borderRadius: 15, padding: 10, margin: 5, shadowColor: "#000000",
+        shadowOffset: { height: 2 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 4, minHeight: 150
     },
     title: { fontSize: 20, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#333' },
     statsContainer: { paddingBottom: 10 },

@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,7 +46,7 @@ export default function AdminMenuScreen() {
 };
 
 const styles = StyleSheet.create({
-    scrollView: { flex: 1},
+    scrollView: { flex: 1 },
     container: { alignItems: 'center', paddingHorizontal: 16 },
     title: { fontSize: 26, fontWeight: 'bold', color: '#333', marginBottom: 30, textAlign: 'center' },
     button: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#343a40', paddingVertical: 14, paddingHorizontal: 20, borderRadius: 8, marginBottom: 15, width: '90%', elevation: 3, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, justifyContent: 'center' },

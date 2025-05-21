@@ -34,6 +34,9 @@ const muscleGroupOptions = [
 export default function RegisterMachineScreen() {
     const { token } = useAuth();
 
+    const [isRewritingTag, setIsRewritingTag] = useState(false);
+    const [existingMachineData, setExistingMachineData] = useState(null);
+
     const [nfcSupported, setNfcSupported] = useState(true);
     const [isNfcEnabled, setIsNfcEnabled] = useState(true);
     const [isScanning, setIsScanning] = useState(false);
@@ -92,6 +95,88 @@ export default function RegisterMachineScreen() {
         }, [token])
     );
 
+    const writeToTagAndLock = async (tagObject) => {
+        if (!tagObject || !tagObject.isWritable) {
+            return;
+        }
+        try {
+            const bytes = Ndef.encodeMessage([Ndef.textRecord('sports-monitoring-app-tag')]);
+            if (bytes) {
+                await NfcManager.ndefHandler.writeNdefMessage(bytes);
+            }
+            await NfcManager.ndefHandler.makeReadOnly();
+        } catch (writeError) {
+            setError(`Failed to write message to tag: ${writeError.message}`);
+        }
+    };
+
+    const processScannedTag = async (tagObject) => {
+        const extractedId = tagObject.id;
+        try {
+            const response = await axios.get(`${API_BASE_URL}/api/machines/byTag/${extractedId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const machine = response.data;
+            setExistingMachineData(machine);
+            setIsRewritingTag(true);
+
+            Alert.alert(
+                "Tag Already Registered",
+                `This tag is currently registered to:
+                \nMachine: ${machine.exerciseName || 'N/A'}
+                \nType: ${machine.exerciseType || 'N/A'}
+                \nGym: ${machine.gymId?.name || machine.gymId || 'Unknown Gym'}
+                \n\nDo you want to update its registration details?`,
+                [
+                    {
+                        text: "No, Cancel", style: "cancel",
+                        onPress: () => {
+                            setScannedTagId(null);
+                            setIsFormVisible(false);
+                            setIsRewritingTag(false);
+                            setExistingMachineData(null);
+                            setError('Update cancelled.');
+                        }
+                    },
+                    {
+                        text: "Yes, Update Details",
+                        onPress: async () => {
+                            setScannedTagId(extractedId);
+                            setExerciseName(machine.exerciseName || '');
+                            setExerciseType(machine.exerciseType || '');
+                            setTrainedMuscle(machine.trainedMuscle || '');
+                            setSelectedGymId(machine.gymId?._id || machine.gymId || '');
+                            setInstructionsLink(machine.instructionsLink || '');
+                            await writeToTagAndLock(tagObject);
+                            setIsFormVisible(true);
+                            Toast.show({ type: 'info', text1: 'Ready to Update', text2: `Tag ID: ${extractedId}` });
+                        }
+                    }
+                ]
+            );
+        } catch (checkError) {
+            if (checkError.response && checkError.response.status === 404) {
+                setIsRewritingTag(false);
+                setExistingMachineData(null);
+                setScannedTagId(extractedId);
+                setExerciseName('');
+                setExerciseType('');
+                setTrainedMuscle('');
+                setSelectedGymId('');
+                setInstructionsLink('');
+                await writeToTagAndLock(tagObject);
+                setIsFormVisible(true);
+                Toast.show({ type: 'success', text1: 'New Tag Scanned!', text2: `ID: ${extractedId}` });
+            } else {
+                setError(`Error checking tag status: ${checkError.response?.data?.msg || checkError.message}`);
+                setScannedTagId(null);
+                setIsFormVisible(false);
+                setIsRewritingTag(false);
+            }
+        }
+    };
+
     const handleScanPress = async () => {
         if (isScanning || !nfcSupported || !isNfcEnabled) {
             if (!nfcSupported) Alert.alert('NFC Error', 'NFC is not supported on this device.');
@@ -103,45 +188,32 @@ export default function RegisterMachineScreen() {
         setScannedTagId(null);
         setIsFormVisible(false);
         setError('');
-        let technologyRequested = false;
+        setIsRewritingTag(false);
+        setExistingMachineData(null);
+        setExerciseName(''); setExerciseType(''); setTrainedMuscle(''); setSelectedGymId(''); setInstructionsLink('');
 
+        let technologyRequested = false;
         try {
             await NfcManager.requestTechnology(NfcTech.Ndef);
             technologyRequested = true;
-
             const tag = await NfcManager.getTag();
-            const extractedId = tag.id;
 
-            if (tag.isWritable) {
-                const bytes = Ndef.encodeMessage([Ndef.textRecord('sports-monitoring-app')]);
-                if (bytes) {
-                    await NfcManager.ndefHandler.writeNdefMessage(bytes);
-                }
-
-                try {
-                    await NfcManager.ndefHandler.makeReadOnly();
-                } catch (readOnlyError) {
-                    Alert.alert('Lock Error', 'Could not make the tag read-only. It might already be locked or unsupported.');
-                }
+            if (tag && tag.id) {
+                await processScannedTag(tag);
+            } else {
+                throw new Error("Failed to retrieve valid tag information or ID.");
             }
-            setScannedTagId(extractedId);
-            setIsFormVisible(true);
-            Toast.show({ type: 'success', text1: 'NFC Tag Scanned!', text2: `ID: ${extractedId}` });
-
-
         } catch (ex) {
-            setError(`Scan/Write failed: ${ex.message || 'Unknown error'}`);
+            setError(`NFC Operation Failed: ${ex.message || 'Unknown error during scan/process'}`);
             setIsFormVisible(false);
             setScannedTagId(null);
-
         } finally {
             if (technologyRequested) {
                 await NfcManager.cancelTechnologyRequest();
             }
+            setIsScanning(false);
         }
-        setIsScanning(false);
-    }
-
+    };
 
     const handleRegisterSubmit = async () => {
         if (!scannedTagId || !exerciseType || !exerciseName || !trainedMuscle || !selectedGymId) {
@@ -162,7 +234,8 @@ export default function RegisterMachineScreen() {
             exerciseName,
             instructionsLink: instructionsLink || undefined,
             trainedMuscle,
-            gymId: selectedGymId
+            gymId: selectedGymId,
+            allowRewrite: isRewritingTag
         };
 
         try {
@@ -178,6 +251,8 @@ export default function RegisterMachineScreen() {
             setInstructionsLink('');
             setTrainedMuscle('');
             setSelectedGymId('');
+            setIsRewritingTag(false);
+            setExistingMachineData(null);
 
         } catch (err) {
             const errorMsg = err.response?.data?.errors?.[0]?.msg || 'Failed to register machine. Please try again.';
@@ -199,7 +274,7 @@ export default function RegisterMachineScreen() {
 
             <View style={styles.section}>
                 <Button
-                    title={isScanning ? 'Scanning... Waiting for Tag' : '1. Scan NFC Tag'}
+                    title={isScanning ? 'Scanning... Waiting for Tag' : 'Scan an NFC Tag'}
                     onPress={handleScanPress}
                     disabled={isScanning || !nfcSupported || !isNfcEnabled}
                 />
@@ -262,7 +337,7 @@ export default function RegisterMachineScreen() {
 
                     <View style={styles.spacerTop}>
                         <Button
-                            title={isSubmitting ? 'Registering...' : '2. Register This Machine'}
+                            title={isSubmitting ? 'Registering...' : 'Register This Machine'}
                             onPress={handleRegisterSubmit}
                             disabled={isSubmitting || !selectedGymId}
                             color="#007AFF"
@@ -271,6 +346,7 @@ export default function RegisterMachineScreen() {
                     </View>
                 </View>
             )}
+            <Toast />
         </ScrollView>
     );
 };
